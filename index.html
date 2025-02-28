@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Desktop</title>
+    <style>
+        #remoteVideo{
+            width: 100%;
+            height: 100%;
+            position: absolute;
+        }
+    </style>
+</head>
+<body>
+    <h2>Your Remote ID: <span id="remoteId">Loading...</span></h2>
+    <input type="text" id="remoteInput" placeholder="Enter Remote ID">
+    <button id="connectBtn">Connect</button>
+    <video id="remoteVideo" autoplay></video>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:8080");
+        let myRemoteId = "";
+        let peer = new RTCPeerConnection();
+
+        ws.onmessage = async (event) => {
+            const message = JSON.parse(event.data);
+
+            if (message.remoteId) {
+                document.getElementById("remoteId").innerText = message.remoteId;
+                myRemoteId = message.remoteId;
+            }
+
+            if (message.offer) {
+                await peer.setRemoteDescription(new RTCSessionDescription(message.offer));
+                const answer = await peer.createAnswer();
+                await peer.setLocalDescription(answer);
+                ws.send(JSON.stringify({ to: message.from, answer }));
+            } else if (message.answer) {
+                await peer.setRemoteDescription(new RTCSessionDescription(message.answer));
+            } else if (message.candidate) {
+                await peer.addIceCandidate(new RTCIceCandidate(message.candidate));
+            }
+        };
+
+        document.getElementById("connectBtn").onclick = async () => {
+            const remoteId = document.getElementById("remoteInput").value;
+
+            const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            stream.getTracks().forEach(track => peer.addTrack(track, stream));
+
+            const offer = await peer.createOffer();
+            await peer.setLocalDescription(offer);
+            ws.send(JSON.stringify({ to: remoteId, from: myRemoteId, offer }));
+        };
+
+        peer.ontrack = (event) => {
+            document.getElementById("remoteVideo").srcObject = event.streams[0];
+        };
+
+        peer.onicecandidate = (event) => {
+            if (event.candidate) {
+                ws.send(JSON.stringify({ to: remoteId, candidate: event.candidate }));
+            }
+        };
+    </script>
+</body>
+</html>
