@@ -1,12 +1,10 @@
 const WebSocket = require("ws");
-const http = require("http");
 const { v4: uuidv4 } = require("uuid");  // Generates unique IDs
 
-const server = http.createServer(); 
-const wss  = new WebSocket.Server({ server });
+const server = new WebSocket.Server({ port: 8080 });
 const clients = {};  // Store Remote ID → WebSocket mapping
 
-wss.on("connection", (socket) => {
+server.on("connection", (socket) => {
     console.log("Client connected");
     const remoteId = uuidv4().split('-')[0]; // Generate a short unique ID
     clients[remoteId] = socket;
@@ -27,6 +25,4 @@ wss.on("connection", (socket) => {
     });
 });
 
-// Use port 8080 or any free port
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => console.log(`WebSocket server running on port ${PORT}`));
+console.log("WebSocket server running on ws://localhost:8080");
